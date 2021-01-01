@@ -41,6 +41,7 @@ import org.netbeans.modules.db.metadata.model.api.Catalog;
 import org.netbeans.modules.db.metadata.model.api.Column;
 import org.netbeans.modules.db.metadata.model.api.Index;
 import org.netbeans.modules.db.metadata.model.api.IndexColumn;
+import org.netbeans.modules.db.metadata.model.api.MetadataElement;
 import org.netbeans.modules.db.metadata.model.api.MetadataElementHandle;
 import org.netbeans.modules.db.metadata.model.api.Schema;
 import org.netbeans.modules.db.metadata.model.api.Table;
@@ -185,7 +186,7 @@ public class DatabaseConnector {
                 col = cmd.createColumn (column.getName ());
             }
 
-            Schema schema = table.getParent();
+            Schema schema = findSchemaForTable(table);
             Catalog catalog = schema.getParent();
             String catName = catalog.getName();
             if (catName == null) {
@@ -240,5 +241,15 @@ public class DatabaseConnector {
 
         return supported;
     }
-
+    
+    private Schema findSchemaForTable(Table table) {
+        MetadataElement current = table;
+        while(current != null) {
+            if (current instanceof Schema) {
+                return (Schema)current;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Cannot find schema for table:" + table.getName());
     }
+}

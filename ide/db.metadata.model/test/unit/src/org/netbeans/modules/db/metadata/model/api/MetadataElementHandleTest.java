@@ -23,6 +23,9 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
+import java.util.List;
+import org.netbeans.modules.db.metadata.model.api.MetadataElementHandle.HierarchyElement;
 import org.netbeans.modules.db.metadata.model.api.MetadataElementHandle.Kind;
 import org.netbeans.modules.db.metadata.model.jdbc.JDBCMetadata;
 import org.netbeans.modules.db.metadata.model.test.api.MetadataTestBase;
@@ -178,23 +181,28 @@ public class MetadataElementHandleTest extends MetadataTestBase {
     public void testEquals() {
         String[] names = new String[] {"CATALOG", null, "TABLEORVIEW"};
 
-        Kind[] tableKinds = new Kind[] {Kind.CATALOG, Kind.SCHEMA, Kind.TABLE};
-        Kind[] viewKinds = new Kind[] {Kind.CATALOG, Kind.SCHEMA, Kind.VIEW};
-        Kind[] schemaKinds = new Kind[] {Kind.CATALOG, Kind.SCHEMA};
+        List<HierarchyElement> tableHE = Arrays.asList(new HierarchyElement(Kind.CATALOG,"CATALOG"),
+            new HierarchyElement(Kind.SCHEMA,null),
+            new HierarchyElement(Kind.TABLE,"TABLEORVIEW"));
+        List<HierarchyElement> viewHE = Arrays.asList(new HierarchyElement(Kind.CATALOG,"CATALOG"),
+            new HierarchyElement(Kind.SCHEMA,null),
+            new HierarchyElement(Kind.VIEW,"TABLEORVIEW"));
+        List<HierarchyElement> schemaHE = Arrays.asList(new HierarchyElement(Kind.CATALOG,"CATALOG"),
+            new HierarchyElement(Kind.SCHEMA,null));
 
-        MetadataElementHandle<? extends MetadataElement> handle1 = MetadataElementHandle.create(Table.class, names, tableKinds);
-        MetadataElementHandle<? extends MetadataElement> handle2 = MetadataElementHandle.create(Table.class, names, tableKinds);
-        MetadataElementHandle<? extends MetadataElement> handle3 = MetadataElementHandle.create(Table.class, names, tableKinds);
+        MetadataElementHandle<? extends MetadataElement> handle1 = MetadataElementHandle.create(Table.class, tableHE);
+        MetadataElementHandle<? extends MetadataElement> handle2 = MetadataElementHandle.create(Table.class, tableHE);
+        MetadataElementHandle<? extends MetadataElement> handle3 = MetadataElementHandle.create(Table.class, tableHE);
 
-        MetadataElementHandle<? extends MetadataElement> schemaHandle = MetadataElementHandle.create(Schema.class, names, schemaKinds);
+        MetadataElementHandle<? extends MetadataElement> schemaHandle = MetadataElementHandle.create(Schema.class, schemaHE);
 
         checkHandles(handle1, handle2, handle3, schemaHandle);
 
-        handle1 = MetadataElementHandle.create(View.class, names, viewKinds);
-        handle2 = MetadataElementHandle.create(View.class, names, viewKinds);
-        handle3 = MetadataElementHandle.create(View.class, names, viewKinds);
+        MetadataElementHandle<? extends MetadataElement> handle4 = MetadataElementHandle.create(View.class, viewHE);
+        MetadataElementHandle<? extends MetadataElement> handle5 = MetadataElementHandle.create(View.class, viewHE);
+        MetadataElementHandle<? extends MetadataElement> handle6 = MetadataElementHandle.create(View.class, viewHE);
 
-        checkHandles(handle1, handle2, handle3, schemaHandle);
+        checkHandles(handle4, handle5, handle6, schemaHandle);
     }
 
     private void checkHandles(MetadataElementHandle<? extends MetadataElement> handle1,

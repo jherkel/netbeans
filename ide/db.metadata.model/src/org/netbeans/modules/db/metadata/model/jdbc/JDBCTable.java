@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.netbeans.modules.db.metadata.model.jdbc;
 
 import java.sql.DatabaseMetaData;
@@ -39,14 +38,16 @@ public class JDBCTable extends TableImplementation {
 
     private static final Logger LOGGER = Logger.getLogger(JDBCTable.class.getName());
 
-    private final JDBCSchema jdbcSchema;
+    protected final JDBCSchema jdbcSchema;
+    private final MetadataElement parent;
     private final String name;
-    private final boolean system;
+    private final Set<TableType> tableType;
 
     private Map<String, Column> columns;
     private Map<String, Index> indexes;
     private Map<String, ForeignKey> foreignKeys;
-    
+    protected Map<String, Table> partitions;
+
     private PrimaryKey primaryKey;
 
     // Need a marker because there may be *no* primary key, and we don't want
@@ -54,21 +55,32 @@ public class JDBCTable extends TableImplementation {
     private boolean primaryKeyInitialized = false;
     private static final String SQL_EXCEPTION_NOT_YET_IMPLEMENTED = "not yet implemented";
 
-    public JDBCTable(JDBCSchema jdbcSchema, String name, boolean system) {
+    public JDBCTable(MetadataElement parent,JDBCSchema jdbcSchema, String name, Set<TableType> tableType) {
+        this.parent = parent;
         this.jdbcSchema = jdbcSchema;
         this.name = name;
-        this.system = system;
+        this.tableType = Collections.unmodifiableSet(EnumSet.copyOf(tableType));
     }
 
     @Override
-    public final Schema getParent() {
-        return jdbcSchema.getSchema();
+    public final MetadataElement getParent() {
+        return parent;
     }
 
     @Override
     public final String getName() {
         return name;
     }
+
+    @Override
+    public Collection<Table> getPartitions() {
+        return initPartitions().values();
+    }
+    
+    @Override
+    public Table getPartition(String name) {
+        return MetadataUtilities.find(name, initPartitions());
+    }    
 
     @Override
     public final Collection<Column> getColumns() {
@@ -102,7 +114,7 @@ public class JDBCTable extends TableImplementation {
 
     @Override
     public ForeignKey getForeignKeyByInternalName(String name) {
-         return MetadataUtilities.find(name, initForeignKeys());
+        return MetadataUtilities.find(name, initForeignKeys());
     }
 
     @Override
@@ -113,8 +125,8 @@ public class JDBCTable extends TableImplementation {
     }
 
     @Override
-    public boolean isSystem() {
-        return system;
+    public Set<TableType> getTableTypes() {
+        return tableType;
     }
 
     @Override
@@ -134,8 +146,10 @@ public class JDBCTable extends TableImplementation {
         return new JDBCColumn(this.getTable(), position, jdbcValue);
     }
 
-    /** Returns true if this table is under ODBC connection. In such a case
-     * some meta data like ORDINAL_POSITION or ASC_OR_DESC are not supported. */
+    /**
+     * Returns true if this table is under ODBC connection. In such a case some meta data like
+     * ORDINAL_POSITION or ASC_OR_DESC are not supported.
+     */
     private boolean isOdbc(ResultSet rs) throws SQLException {
         boolean odbc = jdbcSchema.getJDBCCatalog().getJDBCMetadata().getDmd().getURL().startsWith("jdbc:odbc");  //NOI18N
         if (odbc) {
@@ -153,13 +167,17 @@ public class JDBCTable extends TableImplementation {
         return new JDBCPrimaryKey(this.getTable(), pkName, pkcols);
     }
 
+    protected void createPartitions() {
+        partitions = Collections.emptyMap();
+    }
+
     protected void createColumns() {
         Map<String, Column> newColumns = new LinkedHashMap<String, Column>();
         try {
             ResultSet rs = MetadataUtilities.getColumns(
-                    jdbcSchema.getJDBCCatalog().getJDBCMetadata().getDmd(),
-                    jdbcSchema.getJDBCCatalog().getName(), jdbcSchema.getName(),
-                    name, "%"); // NOI18N
+                jdbcSchema.getJDBCCatalog().getJDBCMetadata().getDmd(),
+                jdbcSchema.getJDBCCatalog().getName(), jdbcSchema.getName(),
+                name, "%"); // NOI18N
             if (rs != null) {
                 try {
                     while (rs.next()) {
@@ -181,9 +199,9 @@ public class JDBCTable extends TableImplementation {
         Map<String, Index> newIndexes = new LinkedHashMap<String, Index>();
         try {
             ResultSet rs = MetadataUtilities.getIndexInfo(
-                    jdbcSchema.getJDBCCatalog().getJDBCMetadata().getDmd(),
-                    jdbcSchema.getJDBCCatalog().getName(), jdbcSchema.getName(),
-                    name, false, true);
+                jdbcSchema.getJDBCCatalog().getJDBCMetadata().getDmd(),
+                jdbcSchema.getJDBCCatalog().getName(), jdbcSchema.getName(),
+                name, false, true);
             if (rs != null) {
                 try {
                     JDBCIndex index = null;
@@ -194,8 +212,8 @@ public class JDBCTable extends TableImplementation {
                         // implicit: ORDINAL_POSITION == 0
                         // @see java.sql.DatabaseMetaData#getIndexInfo
                         if (rs.getShort("TYPE") //NOI18N
-                                == DatabaseMetaData.tableIndexStatistic
-                                || rs.getInt("ORDINAL_POSITION") == 0) { //NOI18N
+                            == DatabaseMetaData.tableIndexStatistic
+                            || rs.getInt("ORDINAL_POSITION") == 0) { //NOI18N
                             continue;
                         }
 
@@ -210,13 +228,13 @@ public class JDBCTable extends TableImplementation {
 
                         JDBCIndexColumn idx = createJDBCIndexColumn(index, rs);
                         if (idx == null) {
-                            LOGGER.log(Level.INFO, "Cannot create index column for {0} from {1}",  //NOI18N
-                                    new Object[]{indexName, rs});
+                            LOGGER.log(Level.INFO, "Cannot create index column for {0} from {1}", //NOI18N
+                                new Object[]{indexName, rs});
                         } else {
                             IndexColumn col = idx.getIndexColumn();
                             index.addColumn(col);
-                            LOGGER.log(Level.FINE, "Added column {0} to index {1}",   //NOI18N
-                                    new Object[]{col.getName(), indexName});
+                            LOGGER.log(Level.FINE, "Added column {0} to index {1}", //NOI18N
+                                new Object[]{col.getName(), indexName});
                         }
                     }
                 } finally {
@@ -256,20 +274,20 @@ public class JDBCTable extends TableImplementation {
             filterSQLException(e);
         }
         if (column == null) {
-            LOGGER.log(Level.INFO, "Cannot get column for index {0} from {1}",  //NOI18N
-                    new Object[] {parent, rs});
+            LOGGER.log(Level.INFO, "Cannot get column for index {0} from {1}", //NOI18N
+                new Object[]{parent, rs});
             return null;
         }
         return new JDBCIndexColumn(parent.getIndex(), column.getName(), column, position, ordering);
     }
 
-        protected void createForeignKeys() {
-        Map<String,ForeignKey> newKeys = new LinkedHashMap<String,ForeignKey>();
+    protected void createForeignKeys() {
+        Map<String, ForeignKey> newKeys = new LinkedHashMap<String, ForeignKey>();
         try {
             ResultSet rs = MetadataUtilities.getImportedKeys(
-                    jdbcSchema.getJDBCCatalog().getJDBCMetadata().getDmd(),
-                    jdbcSchema.getJDBCCatalog().getName(), jdbcSchema.getName(),
-                    name);
+                jdbcSchema.getJDBCCatalog().getJDBCMetadata().getDmd(),
+                jdbcSchema.getJDBCCatalog().getName(), jdbcSchema.getName(),
+                name);
             if (rs != null) {
                 try {
                     JDBCForeignKey fkey = null;
@@ -278,7 +296,7 @@ public class JDBCTable extends TableImplementation {
                         String keyName = MetadataUtilities.trimmed(rs.getString("FK_NAME"));
                         // We have to assume that if the foreign key name is null, then this is a *new*
                         // foreign key, even if the last foreign key name was also null.
-                    if (fkey == null || keyName == null || !(currentKeyName.equals(keyName))) {
+                        if (fkey == null || keyName == null || !(currentKeyName.equals(keyName))) {
                             fkey = createJDBCForeignKey(keyName, rs);
                             LOGGER.log(Level.FINE, "Created foreign key {0}", keyName);  //NOI18N
 
@@ -288,8 +306,8 @@ public class JDBCTable extends TableImplementation {
 
                         ForeignKeyColumn col = createJDBCForeignKeyColumn(fkey, rs).getForeignKeyColumn();
                         fkey.addColumn(col);
-                        LOGGER.log(Level.FINE, "Added foreign key column {0} to foreign key {1}",  //NOI18N
-                                new Object[]{col.getName(), keyName});
+                        LOGGER.log(Level.FINE, "Added foreign key column {0} to foreign key {1}", //NOI18N
+                            new Object[]{col.getName(), keyName});
                     }
                 } finally {
                     rs.close();
@@ -333,18 +351,18 @@ public class JDBCTable extends TableImplementation {
         }
         return new JDBCForeignKeyColumn(parent.getForeignKey(), referringColumn.getName(), referringColumn, referredColumn, position);
     }
-    
+
     private void throwColumnNotFoundException(Table table, String colname)
-            throws MetadataException {
+        throws MetadataException {
         String message = getMessage("ERR_COL_NOT_FOUND", //NOI18N
-                table.getParent().getParent().getName(),
-                table.getParent().getName(), table.getName(), colname);
+            table.getParent().getParent().getName(),
+            table.getParent().getName(), table.getName(), colname);
         MetadataException e = new MetadataException(message);
         LOGGER.log(Level.INFO, message, e);
         throw e;
     }
 
-    private String getMessage(String key, String ... args) {
+    private String getMessage(String key, String... args) {
         return NbBundle.getMessage(JDBCTable.class, key, args);
     }
 
@@ -395,9 +413,9 @@ public class JDBCTable extends TableImplementation {
         Collection<Column> pkcols = new ArrayList<Column>();
         try {
             ResultSet rs = MetadataUtilities.getPrimaryKeys(
-                    jdbcSchema.getJDBCCatalog().getJDBCMetadata().getDmd(),
-                    jdbcSchema.getJDBCCatalog().getName(), jdbcSchema.getName(),
-                    name);
+                jdbcSchema.getJDBCCatalog().getJDBCMetadata().getDmd(),
+                jdbcSchema.getJDBCCatalog().getName(), jdbcSchema.getName(),
+                name);
             if (rs != null) {
                 try {
                     while (rs.next()) {
@@ -416,6 +434,15 @@ public class JDBCTable extends TableImplementation {
         }
 
         primaryKey = createJDBCPrimaryKey(pkname, Collections.unmodifiableCollection(pkcols)).getPrimaryKey();
+    }
+
+    private Map<String, Table> initPartitions() {
+        if (partitions != null) {
+            return partitions;
+        }
+        LOGGER.log(Level.FINE, "Initializing partitions in {0}", this);
+        createPartitions();
+        return partitions;
     }
 
     private Map<String, Column> initColumns() {
@@ -437,7 +464,7 @@ public class JDBCTable extends TableImplementation {
         return indexes;
     }
 
-    private Map<String,ForeignKey> initForeignKeys() {
+    private Map<String, ForeignKey> initForeignKeys() {
         if (foreignKeys != null) {
             return foreignKeys;
         }
@@ -459,11 +486,17 @@ public class JDBCTable extends TableImplementation {
         return primaryKey;
     }
 
-    private void filterSQLException(SQLException x) throws MetadataException {
+    protected void filterSQLException(SQLException x) throws MetadataException {
         if (SQL_EXCEPTION_NOT_YET_IMPLEMENTED.equalsIgnoreCase(x.getMessage())) {
             Logger.getLogger(JDBCTable.class.getName()).log(Level.FINE, x.getLocalizedMessage(), x);
         } else {
             throw new MetadataException(x);
         }
     }
+
+    @Override
+    public boolean isSystem() {
+        return tableType.contains(TableType.SYSTEM);
+    }
+
 }

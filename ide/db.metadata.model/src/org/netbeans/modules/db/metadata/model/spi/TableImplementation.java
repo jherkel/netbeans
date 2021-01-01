@@ -20,13 +20,15 @@
 package org.netbeans.modules.db.metadata.model.spi;
 
 import java.util.Collection;
+import java.util.Set;
 import org.netbeans.modules.db.metadata.model.MetadataAccessor;
 import org.netbeans.modules.db.metadata.model.api.Column;
 import org.netbeans.modules.db.metadata.model.api.ForeignKey;
 import org.netbeans.modules.db.metadata.model.api.Index;
+import org.netbeans.modules.db.metadata.model.api.MetadataElement;
 import org.netbeans.modules.db.metadata.model.api.PrimaryKey;
-import org.netbeans.modules.db.metadata.model.api.Schema;
 import org.netbeans.modules.db.metadata.model.api.Table;
+import org.netbeans.modules.db.metadata.model.api.TableType;
 
 /**
  *
@@ -43,11 +45,15 @@ public abstract class TableImplementation {
         return table;
     }
 
-    public abstract Schema getParent();
+    public abstract MetadataElement getParent();
 
     public abstract String getName();
 
     public abstract Collection<Column> getColumns();
+
+    public abstract Collection<Table> getPartitions();
+
+    public abstract Table getPartition(String name);
 
     public abstract Column getColumn(String name);
 
@@ -63,5 +69,9 @@ public abstract class TableImplementation {
 
     public abstract void refresh();
 
+    public abstract Set<TableType> getTableTypes();
+    
+    @Deprecated
     public abstract boolean isSystem();
+    
 }

@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.netbeans.modules.db.explorer.node;
 
 import java.awt.datatransfer.Transferable;
@@ -31,11 +30,7 @@ import org.netbeans.api.db.explorer.DatabaseMetaDataTransfer;
 import org.netbeans.api.db.explorer.node.BaseNode;
 import org.netbeans.api.db.explorer.node.ChildNodeFactory;
 import org.netbeans.api.db.explorer.node.NodeProvider;
-import org.netbeans.lib.ddl.DDLException;
-import org.netbeans.lib.ddl.impl.AbstractCommand;
-import org.netbeans.lib.ddl.impl.Specification;
 import org.netbeans.modules.db.explorer.DatabaseConnection;
-import org.netbeans.modules.db.explorer.DatabaseConnector;
 import org.netbeans.modules.db.explorer.DatabaseMetaDataTransferAccessor;
 import org.netbeans.modules.db.metadata.model.api.Action;
 import org.netbeans.modules.db.metadata.model.api.Metadata;
@@ -44,27 +39,23 @@ import org.netbeans.modules.db.metadata.model.api.MetadataModel;
 import org.netbeans.modules.db.metadata.model.api.MetadataModelException;
 import org.netbeans.modules.db.metadata.model.api.Table;
 import org.netbeans.modules.db.metadata.model.api.TableType;
-import org.openide.DialogDisplayer;
-import org.openide.NotifyDescriptor;
 import org.openide.nodes.Node;
 import org.openide.nodes.PropertySupport;
-import org.openide.util.Exceptions;
 import org.openide.util.HelpCtx;
 import org.openide.util.NbBundle;
 import org.openide.util.datatransfer.ExTransferable;
 
 /**
  *
- * @author Rob Englander
+ * @author Jakub Herkel
  */
-public class TableNode extends BaseNode implements SchemaNameProvider {
-    private static final String ICONBASE_LNODE = "org/netbeans/modules/db/resources/table.gif"; // NOI18N
-    private static final String ICONBASE_PARTITIONED = "org/netbeans/modules/db/resources/table_partitioned.gif"; // NOI18N
+public class PartitionNode extends BaseNode implements SchemaNameProvider {
+
+    private static final String ICONBASE_PARTITIONED = "org/netbeans/modules/db/resources/partition_partitioned.gif"; // NOI18N
+    private static final String ICONBASE = "org/netbeans/modules/db/resources/partition.gif"; // NOI18N
     private static final String FOLDER = "Table"; //NOI18N
-    private static final String SYSTEM = "System"; //NOI18N
-    private static final String SYSTEMDESC = "SystemDesc"; //NOI18N
-    private static final Map<Node, Object> NODES_TO_REFRESH =
-            new WeakHashMap<Node, Object>();
+    private static final Map<Node, Object> NODES_TO_REFRESH
+        = new WeakHashMap<Node, Object>();
 
     /**
      * Create an instance of TableNode.
@@ -72,8 +63,8 @@ public class TableNode extends BaseNode implements SchemaNameProvider {
      * @param dataLookup the lookup to use when creating node providers
      * @return the TableNode instance
      */
-    public static TableNode create(NodeDataLookup dataLookup, NodeProvider provider) {
-        TableNode node = new TableNode(dataLookup, provider);
+    public static PartitionNode create(NodeDataLookup dataLookup, NodeProvider provider) {
+        PartitionNode node = new PartitionNode(dataLookup, provider);
         node.setup();
         return node;
     }
@@ -84,7 +75,7 @@ public class TableNode extends BaseNode implements SchemaNameProvider {
     private final DatabaseConnection connection;
 
     @SuppressWarnings("unchecked")
-    private TableNode(NodeDataLookup lookup, NodeProvider provider) {
+    private PartitionNode(NodeDataLookup lookup, NodeProvider provider) {
         super(new ChildNodeFactory(lookup), lookup, FOLDER, provider);
         connection = getLookup().lookup(DatabaseConnection.class);
         tableHandle = getLookup().lookup(MetadataElementHandle.class);
@@ -96,20 +87,19 @@ public class TableNode extends BaseNode implements SchemaNameProvider {
         MetadataModel metaDataModel = connection.getMetadataModel();
         if (connected && metaDataModel != null) {
             try {
-                metaDataModel.runReadAction(
-                    new Action<Metadata>() {
+                metaDataModel.runReadAction(new Action<Metadata>() {
                     @Override
-                        public void run(Metadata metaData) {
-                            Table table = tableHandle.resolve(metaData);
-                            if (table == null) {
-                                Logger.getLogger(TableNode.class.getName()).log(Level.INFO, "Cannot get table name for " + tableHandle);
-                                return ;
-                            }
-                            name = table.getName();
-                            tableTypes = table.getTableTypes();
-                            updateProperties(table);
+                    public void run(Metadata metaData) {
+                        Table table = tableHandle.resolve(metaData);
+                        if (table == null) {
+                            Logger.getLogger(PartitionNode.class.getName()).log(Level.INFO, "Cannot get table name for " + tableHandle);
+                            return;
                         }
+                        name = table.getName();
+                        tableTypes = table.getTableTypes();
+                        updateProperties(table);
                     }
+                }
                 );
             } catch (MetadataModelException e) {
                 NodeRegistry.handleMetadataModelException(this.getClass(), connection, e, true);
@@ -119,12 +109,11 @@ public class TableNode extends BaseNode implements SchemaNameProvider {
     }
 
     private void updateProperties(Table table) {
-        PropertySupport.Name ps = new PropertySupport.Name(TableNode.this);
+        PropertySupport.Name ps = new PropertySupport.Name(PartitionNode.this);
         addProperty(ps);
 
         addProperty(CATALOG, CATALOGDESC, String.class, false, getCatalogName());
         addProperty(SCHEMA, SCHEMADESC, String.class, false, getSchemaName());
-        addProperty(SYSTEM, SYSTEMDESC, Boolean.class, false, isSystem());
     }
 
     public MetadataElementHandle<Table> getTableHandle() {
@@ -142,37 +131,6 @@ public class TableNode extends BaseNode implements SchemaNameProvider {
     }
 
     @Override
-    public void destroy() {
-        DatabaseConnector connector = connection.getConnector();
-        Specification spec = connector.getDatabaseSpecification();
-
-        try {
-            AbstractCommand command = spec.createCommandDropTable(getName());
-            String schemaName = getSchemaName();
-            String catalogName = getCatalogName();
-            if (schemaName == null) {
-                schemaName = catalogName;
-            }
-
-            command.setObjectOwner(schemaName);
-            command.execute();
-        } catch (DDLException e) {
-            Logger.getLogger(TableNode.class.getName()).log(Level.INFO, e + " while deleting table " + getName());
-            DialogDisplayer.getDefault().notifyLater(new NotifyDescriptor.Message(e.getMessage(), NotifyDescriptor.ERROR_MESSAGE));
-        } catch (Exception e) {
-            Exceptions.printStackTrace(e);
-        }
-
-        setValue(BaseFilterNode.REFRESH_ANCESTOR_DISTANCE, new Integer(1));
-    }
-
-    @Override
-    public boolean canDestroy() {
-        DatabaseConnector connector = connection.getConnector();
-        return (! isSystem()) && connector.supportsCommand(Specification.DROP_TABLE);
-    }
-
-    @Override
     public String getName() {
         return name;
     }
@@ -187,7 +145,7 @@ public class TableNode extends BaseNode implements SchemaNameProvider {
         if (tableTypes.contains(TableType.PARTITIONED)) {
             return ICONBASE_PARTITIONED;
         } else {
-            return ICONBASE_LNODE;
+            return ICONBASE;
         }
     }
 
@@ -197,12 +155,12 @@ public class TableNode extends BaseNode implements SchemaNameProvider {
 
     @Override
     public String getShortDescription() {
-        return NbBundle.getMessage (TableNode.class, "ND_Table"); //NOI18N
+        return NbBundle.getMessage(PartitionNode.class, "ND_Table"); //NOI18N
     }
 
     @Override
     public HelpCtx getHelpCtx() {
-        return new HelpCtx(TableNode.class);
+        return new HelpCtx(PartitionNode.class);
     }
 
     @Override
@@ -217,7 +175,7 @@ public class TableNode extends BaseNode implements SchemaNameProvider {
             @Override
             protected Object getData() {
                 return DatabaseMetaDataTransferAccessor.DEFAULT.createTableData(connection.getDatabaseConnection(),
-                        connection.findJDBCDriver(), getName());
+                    connection.findJDBCDriver(), getName());
             }
         });
         return result;
@@ -231,16 +189,16 @@ public class TableNode extends BaseNode implements SchemaNameProvider {
             metaDataModel.runReadAction(
                 new Action<Metadata>() {
                 @Override
-                    public void run(Metadata metaData) {
-                        Table table = handle.resolve(metaData);
-                        if (table != null && table.getParent() != null) {
-                            array[0] = table.getParent().getName();
-                        }
+                public void run(Metadata metaData) {
+                    Table table = handle.resolve(metaData);
+                    if (table != null && table.getParent() != null) {
+                        array[0] = table.getParent().getName();
                     }
                 }
+            }
             );
         } catch (MetadataModelException e) {
-            NodeRegistry.handleMetadataModelException(TableNode.class, connection, e, true);
+            NodeRegistry.handleMetadataModelException(PartitionNode.class, connection, e, true);
         }
 
         return array[0];
@@ -254,16 +212,16 @@ public class TableNode extends BaseNode implements SchemaNameProvider {
             metaDataModel.runReadAction(
                 new Action<Metadata>() {
                 @Override
-                    public void run(Metadata metaData) {
-                        Table table = handle.resolve(metaData);
-                        if (table != null && table.getParent() != null) {
-                            array[0] = table.getParent().getParent().getName();
-                        }
+                public void run(Metadata metaData) {
+                    Table table = handle.resolve(metaData);
+                    if (table != null && table.getParent() != null) {
+                        array[0] = table.getParent().getParent().getName();
                     }
                 }
+            }
             );
         } catch (MetadataModelException e) {
-            NodeRegistry.handleMetadataModelException(TableNode.class, connection, e, true);
+            NodeRegistry.handleMetadataModelException(PartitionNode.class, connection, e, true);
         }
 
         return array[0];

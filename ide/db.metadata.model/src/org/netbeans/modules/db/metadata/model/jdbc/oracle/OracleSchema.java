@@ -24,6 +24,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,6 +36,7 @@ import org.netbeans.modules.db.metadata.model.MetadataUtilities;
 import org.netbeans.modules.db.metadata.model.api.MetadataException;
 import org.netbeans.modules.db.metadata.model.api.Procedure;
 import org.netbeans.modules.db.metadata.model.api.Table;
+import org.netbeans.modules.db.metadata.model.api.TableType;
 import org.netbeans.modules.db.metadata.model.jdbc.JDBCCatalog;
 import org.netbeans.modules.db.metadata.model.jdbc.JDBCSchema;
 
@@ -69,7 +71,8 @@ public class OracleSchema extends JDBCSchema {
                         String type = MetadataUtilities.trimmed(rs.getString("TABLE_TYPE")); //NOI18N
                         String tableName = rs.getString("TABLE_NAME"); // NOI18N
                         if (!recycleBinTables.contains(tableName)) {
-                            Table table = createJDBCTable(tableName, type.contains("SYSTEM")).getTable(); //NOI18N
+                            EnumSet<TableType> tableTypes = MetadataUtilities.parseTableType(type);
+                            Table table = createJDBCTable(tableName, tableTypes).getTable(); //NOI18N
                             newTables.put(tableName, table);
                             LOGGER.log(Level.FINE, "Created table {0}", table);
                         } else {

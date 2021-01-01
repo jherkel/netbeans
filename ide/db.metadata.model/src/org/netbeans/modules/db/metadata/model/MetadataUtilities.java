@@ -16,22 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.netbeans.modules.db.metadata.model;
 
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.logging.Logger;
+import org.netbeans.modules.db.metadata.model.api.TableType;
 
 /**
  *
  * @author Andrei Badea
  */
-public class MetadataUtilities {
+public final class MetadataUtilities {
 
-    private MetadataUtilities() {}
+    private static final Logger LOGGER = Logger.getLogger(MetadataUtilities.class.getName());
+
+    private MetadataUtilities() {
+    }
 
     public static <V> V find(String key, Map<String, ? extends V> map) {
         V value = map.get(key);
@@ -57,9 +62,9 @@ public class MetadataUtilities {
             return ignoreCase ? str1.equalsIgnoreCase(str2) : str1.equals(str2);
         }
     }
-    
+
     public static String trimmed(String input) {
-        if(input == null) {
+        if (input == null) {
             return input;
         } else {
             return input.trim();
@@ -67,15 +72,15 @@ public class MetadataUtilities {
     }
 
     /**
-     * Call {@link DatabaseMetaData#getColumns(String, String, String, String)},
-     * wrapping any internal runtime exception into an {@link SQLException}.
+     * Call {@link DatabaseMetaData#getColumns(String, String, String, String)}, wrapping any
+     * internal runtime exception into an {@link SQLException}.
      */
     public static ResultSet getColumns(DatabaseMetaData dmd, String catalog,
-            String schemaPattern, String tableNamePattern,
-            String columnNamePattern) throws SQLException {
+        String schemaPattern, String tableNamePattern,
+        String columnNamePattern) throws SQLException {
         try {
             return dmd.getColumns(catalog, schemaPattern, tableNamePattern,
-                    columnNamePattern);
+                columnNamePattern);
         } catch (SQLException e) {
             throw e;
         } catch (Throwable t) {
@@ -85,15 +90,14 @@ public class MetadataUtilities {
 
     /**
      * Call {@link DatabaseMetaData#getIndexInfo(String, String, String,
-     * boolean, boolean)}, wrapping any internal runtime exception into an
-     * {@link SQLException}.
+     * boolean, boolean)}, wrapping any internal runtime exception into an {@link SQLException}.
      */
     public static ResultSet getIndexInfo(DatabaseMetaData dmd,
-            String catalog, String schema, String table,
-            boolean unique, boolean approximate) throws SQLException {
+        String catalog, String schema, String table,
+        boolean unique, boolean approximate) throws SQLException {
         try {
             return dmd.getIndexInfo(catalog, schema, table, unique,
-                    approximate);
+                approximate);
         } catch (SQLException e) {
             throw e;
         } catch (Throwable t) {
@@ -102,11 +106,11 @@ public class MetadataUtilities {
     }
 
     /**
-     * Call {@link DatabaseMetaData#getImportedKeys(String, String, String)},
-     * wrapping any internal runtime exception into an {@link SQLException}.
+     * Call {@link DatabaseMetaData#getImportedKeys(String, String, String)}, wrapping any internal
+     * runtime exception into an {@link SQLException}.
      */
     public static ResultSet getImportedKeys(DatabaseMetaData dmd,
-            String catalog, String schema, String table) throws SQLException {
+        String catalog, String schema, String table) throws SQLException {
         try {
             return dmd.getImportedKeys(catalog, schema, table);
         } catch (SQLException e) {
@@ -117,11 +121,11 @@ public class MetadataUtilities {
     }
 
     /**
-     * Call {@link DatabaseMetaData#getPrimaryKeys(String, String, String)},
-     * wrapping any internal runtime exeption into an {@link SQLException}.
+     * Call {@link DatabaseMetaData#getPrimaryKeys(String, String, String)}, wrapping any internal
+     * runtime exeption into an {@link SQLException}.
      */
     public static ResultSet getPrimaryKeys(DatabaseMetaData dmd,
-            String catalog, String schema, String table) throws SQLException {
+        String catalog, String schema, String table) throws SQLException {
         try {
             return dmd.getPrimaryKeys(catalog, schema, table);
         } catch (SQLException e) {
@@ -133,15 +137,14 @@ public class MetadataUtilities {
 
     /**
      * Call {@link DatabaseMetaData#getTables(String, String, String,
-     * String[])}, wrapping any internal runtime exception into an
-     * {@link SQLException}.
+     * String[])}, wrapping any internal runtime exception into an {@link SQLException}.
      */
     public static ResultSet getTables(DatabaseMetaData dmd,
-            String catalog, String schemaPattern, String tableNamePattern,
-            String[] types) throws SQLException {
+        String catalog, String schemaPattern, String tableNamePattern,
+        String[] types) throws SQLException {
         try {
             return dmd.getTables(catalog, schemaPattern, tableNamePattern,
-                    types);
+                types);
         } catch (SQLException e) {
             throw e;
         } catch (Throwable t) {
@@ -150,15 +153,15 @@ public class MetadataUtilities {
     }
 
     /**
-     * Call {@link DatabaseMetaData#getProcedures(String, String, String)},
-     * wrapping any internal runtime exception into an {@link SQLException}.
+     * Call {@link DatabaseMetaData#getProcedures(String, String, String)}, wrapping any internal
+     * runtime exception into an {@link SQLException}.
      */
     public static ResultSet getProcedures(DatabaseMetaData dmd,
-            String catalog, String schemaPattern, String procedureNamePattern)
-            throws SQLException {
+        String catalog, String schemaPattern, String procedureNamePattern)
+        throws SQLException {
         try {
             return dmd.getProcedures(catalog, schemaPattern,
-                    procedureNamePattern);
+                procedureNamePattern);
         } catch (SQLException e) {
             throw e;
         } catch (Throwable t) {
@@ -167,19 +170,30 @@ public class MetadataUtilities {
     }
 
     /**
-     * Call {@link DatabaseMetaData#geFunctions(String, String, String)},
-     * wrapping any internal runtime exception into an {@link SQLException}.
+     * Call {@link DatabaseMetaData#geFunctions(String, String, String)}, wrapping any internal
+     * runtime exception into an {@link SQLException}.
      */
     public static ResultSet getFunctions(DatabaseMetaData dmd,
-            String catalog, String schemaPattern, String functionNamePattern)
-            throws SQLException {
+        String catalog, String schemaPattern, String functionNamePattern)
+        throws SQLException {
         try {
             return dmd.getFunctions(catalog, schemaPattern,
-                    functionNamePattern);
+                functionNamePattern);
         } catch (SQLException e) {
             throw e;
         } catch (Throwable t) {
             throw new SQLException(t);
         }
     }
+
+    public static EnumSet<TableType> parseTableType(String tableType) {
+        if (tableType.contains("SYSTEM")) {
+            return EnumSet.of(TableType.SYSTEM, TableType.BASIC);
+        }
+        if (tableType.contains("PARTITIONED")) {
+            return EnumSet.of(TableType.PARTITIONED);
+        }
+        return EnumSet.of(TableType.BASIC);
+    }
+
 }

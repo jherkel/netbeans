@@ -16,33 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.netbeans.modules.db.metadata.model.api;
 
-import java.util.Collection;
-
 /**
- * A tuple is something that is represented by a set of rows, with each
- * row being represented by one or more columns
  *
- * @author David
+ * @author jakub
  */
-public abstract class Tuple extends MetadataElement {
-    /**
-     * Returns the columns in this tuple.
-     *
-     * @return the columns.
-     * @throws MetadataException if an error occurs while retrieving the metadata.
-     */
-    public abstract Collection<Column> getColumns();
-
-    /**
-     * Returns the column with the given name.
-     *
-     * @param name a column name.
-     * @return a column named {@code name} or {@code null} if there is no such column.
-     * @throws MetadataException if an error occurs while retrieving the metadata.
-     */
-    public abstract Column getColumn(String name);
+public enum TableType {
+    BASIC,
+    SYSTEM,
+    PARTITIONED,
+    PARTITION
 
 }

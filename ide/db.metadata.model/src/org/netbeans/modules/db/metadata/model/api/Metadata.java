@@ -131,7 +131,6 @@ public class Metadata {
             return new Table(impl);
         }
 
-
         @Override
         public View createView(ViewImplementation impl) {
             return new View(impl);

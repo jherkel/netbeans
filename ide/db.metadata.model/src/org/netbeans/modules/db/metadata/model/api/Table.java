@@ -20,6 +20,7 @@
 package org.netbeans.modules.db.metadata.model.api;
 
 import java.util.Collection;
+import java.util.Set;
 import org.netbeans.modules.db.metadata.model.spi.TableImplementation;
 
 /**
@@ -39,15 +40,25 @@ public class Table extends Tuple {
      *
      * @return the parent schema.
      */
-    public Schema getParent() {
+    @Override
+    public MetadataElement getParent() {
         return impl.getParent();
     }
 
+    public Table getPartition(String name) {
+        return impl.getPartition(name);
+    }    
+
+    public Collection<Table> getPartitions() {
+        return impl.getPartitions();
+    }    
+    
     /**
      * Returns the name of this table; never {@code null}.
      *
      * @return the name.
      */
+    @Override
     public String getName() {
         return impl.getName();
     }
@@ -111,8 +122,8 @@ public class Table extends Tuple {
         return "Table[name='" + getName() + "']"; // NOI18N
     }
 
-    public boolean isSystem() {
-        return impl.isSystem();
+    public Set<TableType> getTableTypes() {
+        return impl.getTableTypes();
     }
 
     /**
@@ -121,4 +132,10 @@ public class Table extends Tuple {
     ForeignKey getForeignKeyByInternalName(String internalName) {
         return impl.getForeignKeyByInternalName(internalName);
     }
+    
+    @Deprecated
+    public boolean isSystem() {
+        return impl.getTableTypes().contains(TableType.SYSTEM);
+    }
+    
 }

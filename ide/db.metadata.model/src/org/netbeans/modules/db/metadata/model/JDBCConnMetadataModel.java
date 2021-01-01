@@ -34,6 +34,7 @@ import org.netbeans.modules.db.metadata.model.jdbc.JDBCMetadata;
 import org.netbeans.modules.db.metadata.model.jdbc.mssql.MSSQLMetadata;
 import org.netbeans.modules.db.metadata.model.jdbc.mysql.MySQLMetadata;
 import org.netbeans.modules.db.metadata.model.jdbc.oracle.OracleMetadata;
+import org.netbeans.modules.db.metadata.model.jdbc.pgsql.PostgreSQLMetadata;
 
 /**
  *
@@ -116,6 +117,9 @@ public class JDBCConnMetadataModel implements MetadataModelImplementation {
 
             if ("mysql".equalsIgnoreCase(dmd.getDatabaseProductName())) { // NOI18N
                 return new MySQLMetadata(conn, defaultSchemaName);
+            }
+            if ("PostgreSQL".equals(dmd.getDatabaseProductName())) { // NOI18N
+                return new PostgreSQLMetadata(conn, defaultSchemaName);
             }
             
             String driverName = dmd.getDriverName();

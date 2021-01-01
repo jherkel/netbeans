@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.netbeans.modules.db.metadata.model.MetadataUtilities;
@@ -128,8 +129,8 @@ public class JDBCSchema extends SchemaImplementation {
         return "JDBCSchema[name='" + name + "',default=" + _default + ",synthetic=" + synthetic + "]"; // NOI18N
     }
 
-    protected JDBCTable createJDBCTable(String name, boolean system) {
-        return new JDBCTable(this, name, system);
+    protected JDBCTable createJDBCTable(String name, Set<TableType> tableTypes) {
+        return new JDBCTable(this.getSchema(),this, name, tableTypes);
     }
 
     protected JDBCProcedure createJDBCProcedure(String procedureName) {
@@ -149,13 +150,14 @@ public class JDBCSchema extends SchemaImplementation {
         Map<String, Table> newTables = new LinkedHashMap<String, Table>();
         try {
             ResultSet rs = MetadataUtilities.getTables(jdbcCatalog.getJDBCMetadata().getDmd(),
-                    jdbcCatalog.getName(), name, "%", new String[]{"TABLE", "SYSTEM TABLE"}); // NOI18N
+                    jdbcCatalog.getName(), name, "%", new String[]{"TABLE", "SYSTEM TABLE","PARTITIONED TABLE"}); // NOI18N
             if (rs != null) {
                 try {
                     while (rs.next()) {
                         String type = MetadataUtilities.trimmed(rs.getString("TABLE_TYPE")); //NOI18N
                         String tableName = MetadataUtilities.trimmed(rs.getString("TABLE_NAME")); // NOI18N
-                        Table table = createJDBCTable(tableName, type.contains("SYSTEM")).getTable(); //NOI18N
+                        Set<TableType> tableTypes = MetadataUtilities.parseTableType(type);
+                        Table table = createJDBCTable(tableName, tableTypes).getTable(); //NOI18N
                         newTables.put(tableName, table);
                         LOGGER.log(Level.FINE, "Created table {0}", table); //NOI18N
                     }
